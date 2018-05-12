@@ -20,9 +20,17 @@ func Decode(msg []byte, obj interface{}) error {
 
 	switch objT.Kind() {
 	case reflect.Struct:
+		if jsonUnmarshaller, ok := objV.Addr().Interface().(json.Unmarshaler); ok {
+			if err := jsonUnmarshaller.UnmarshalJSON(msg); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		var jsonParserValue []byte
 		var jsonParserLastError error
 		var jsonParserDataType jsonparser.ValueType
+		//var lastOffset int
 		for i := 0; i < objT.NumField(); i++ {
 			fieldValue := objV.Field(i)
 			if !fieldValue.CanSet() {
@@ -32,7 +40,13 @@ func Decode(msg []byte, obj interface{}) error {
 			jsonParserValue = nil
 			f := objT.Field(i)
 
-			var fieldNamesToFind = []string{f.Tag.Get("json"), f.Name}
+			var fieldNamesToFind = []string{f.Name}
+			if tagName := f.Tag.Get("json"); tagName != "" {
+				if tagName == "-" {
+					continue
+				}
+				fieldNamesToFind = append([]string{tagName}, fieldNamesToFind...)
+			}
 			for _, fieldName := range fieldNamesToFind {
 				jsonParserValue, jsonParserDataType, _, jsonParserLastError = jsonparser.Get(msg, fieldName)
 				if jsonParserDataType != jsonparser.NotExist && jsonParserLastError != nil {
@@ -48,7 +62,7 @@ func Decode(msg []byte, obj interface{}) error {
 			}
 
 			if decoding_err := Decode(jsonParserValue, fieldValue.Addr().Interface()); decoding_err != nil {
-				return errors.Wrap(decoding_err, f.Name+" decoding error")
+				return errors.Wrap(decoding_err, f.Name+" decoding error("+string(jsonParserValue)+")")
 			}
 		}
 	case reflect.Slice:

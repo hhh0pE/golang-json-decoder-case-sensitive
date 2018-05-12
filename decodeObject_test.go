@@ -40,6 +40,7 @@ func TestDecodeObject(t *testing.T) {
 		t.Error("Error!")
 	}
 	fmt.Printf("%v\n", resultObject)
+	fmt.Println(string(msg))
 }
 
 func TestDecode(t *testing.T) {
